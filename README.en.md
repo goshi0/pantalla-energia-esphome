@@ -75,7 +75,21 @@ your own in any language; if they use new letters, add those to the `glyphs` of 
 | Touch | CST816 over I²C (SDA `4`, SCL `5`, INT `0`, RST `1`) |
 | Backlight | PWM on `GPIO3`, controllable from Home Assistant |
 
-It is the common 1.28" "ESP32-C3 round display" board.
+It is the **ESP32-2424S012**, the common 1.28" "ESP32-C3 round display" board.
+
+## 🧲 Printable case and stand
+
+<img align="right" src="carcasa/img/renders.png" width="320">
+
+[`carcasa/`](carcasa/) holds a **3D-printable round case** with two screw-on back covers
+(USB only, or with a LiPo battery) and an **industrial-style charging stand** that holds the display
+with a hidden magnet so it seems to float.
+
+- Ready-to-print STLs, no supports needed.
+- Parametric design in FreeCAD (Python).
+- Print, assembly and battery notes in its [README](carcasa/README.en.md).
+
+<br clear="right">
 
 ## 🛠️ Make it yours
 
@@ -178,6 +192,7 @@ ha.py             client for the Home Assistant ESPHome add-on
 .env.example      template for the Home Assistant URL and token
 preview-*.png     screenshots of every page
 gengar.gif        animation of the Gengar page
+carcasa/          3D-printable case and stand (STL + FreeCAD source)
 ```
 
 ---

@@ -73,7 +73,21 @@ letras nuevas, recuerda incluirlas en los `glyphs` de `font_tip`.
 | Táctil | CST816 por I²C (SDA `4`, SCL `5`, INT `0`, RST `1`) |
 | Retroiluminación | PWM en `GPIO3`, controlable desde Home Assistant |
 
-Es la típica placa «ESP32-C3 round display» de 1,28".
+Es la placa **ESP32-2424S012**, la típica «ESP32-C3 round display» de 1,28".
+
+## 🧲 Carcasa y base imprimibles
+
+<img align="right" src="carcasa/img/renders.png" width="320">
+
+En [`carcasa/`](carcasa/) tienes una **carcasa redonda imprimible en 3D** con dos tapas roscadas
+(solo USB o con batería LiPo) y una **base de carga de estilo industrial** en la que la pantalla
+se sujeta con un imán oculto y parece flotar.
+
+- STL listos para imprimir, sin soportes.
+- Diseño paramétrico en FreeCAD (Python).
+- Instrucciones de impresión, montaje y batería en su [README](carcasa/README.md).
+
+<br clear="right">
 
 ## 🛠️ Adáptalo a tu casa
 
@@ -167,6 +181,7 @@ ha.py             cliente del add-on ESPHome de Home Assistant
 .env.example      plantilla para la URL y el token de Home Assistant
 preview-*.png     capturas de cada página
 gengar.gif        animación de la página de Gengar
+carcasa/          carcasa y base imprimibles en 3D (STL + fuente FreeCAD)
 ```
 
 ---
