@@ -1,0 +1,7 @@
+# Home Assistant token
+.env
+secrets.yaml
+__pycache__/
+.esphome/
+# third-party template this config started from
+pantalla.orig.yaml
