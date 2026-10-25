@@ -12,6 +12,8 @@ temperaturas de cada habitación… y un Gengar que te da consejos para ahorrar.
 ![ESP32-C3](https://img.shields.io/badge/ESP32--C3-E7352C?logo=espressif&logoColor=white)
 ![LVGL](https://img.shields.io/badge/LVGL-9-7E5CAA)
 
+<img src="foto-portada.jpg" width="560" alt="La pantalla en su base">
+
 ![Todas las pantallas](banner.png)
 
 </div>

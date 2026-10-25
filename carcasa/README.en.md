@@ -6,6 +6,9 @@
 
 <img src="img/renders.png" width="720"><br><sub>Model views</sub>
 
+
+<img src="img/foto-base.jpg" width="480"><br><sub>The stand without the display: backplate with the hidden magnet, honeycomb and V-jaws</sub>
+
 </div>
 
 A round case for the **ESP32-2424S012** board (ESP32-C3 with a 1.28" round touch display), plus an industrial-style charging stand that makes the display look like it's floating.

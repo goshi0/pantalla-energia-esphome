@@ -6,6 +6,9 @@
 
 <img src="img/renders.png" width="720"><br><sub>Vistas del modelo</sub>
 
+
+<img src="img/foto-base.jpg" width="480"><br><sub>La base sin la pantalla: respaldo con el imán oculto, panal y mordazas en V</sub>
+
 </div>
 
 Carcasa redonda para la placa **ESP32-2424S012** (ESP32-C3 con pantalla táctil redonda de 1,28") y una base de carga de estilo industrial en la que la pantalla parece flotar.
