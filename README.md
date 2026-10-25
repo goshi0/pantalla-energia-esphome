@@ -1,5 +1,7 @@
 <div align="center">
 
+[English](README.en.md) · **Español**
+
 # ⚡ Pantalla de energía redonda
 
 **Un mini panel de 240×240 px para la casa: consumo eléctrico en tiempo real, coste del día y del mes,
