@@ -73,31 +73,64 @@ letras nuevas, recuerda incluirlas en los `glyphs` de `font_tip`.
 
 Es la típica placa «ESP32-C3 round display» de 1,28".
 
-## 🏠 Datos de Home Assistant
+## 🛠️ Adáptalo a tu casa
 
-| Qué | Entidad |
-|---|---|
-| Potencia instantánea (W) | `sensor.shellyem_…_channel_2_power` (Shelly EM) |
-| Energía total (kWh) | `sensor.shellyem_…_channel_2_energy` |
-| Precio PVPC (€/kWh) y `price_ratio` | `sensor.esios_pvpc` |
-| Temperatura / humedad | un sensor por habitación |
+Todo lo que hay que tocar está al principio de [`pantalla.yaml`](pantalla.yaml), en `substitutions`,
+organizado por secciones y comentado en inglés y castellano. **No hace falta tocar nada más.**
 
-Cambia los `entity_id` en la sección `sensor:` para adaptarlo a tu casa.
+**B · Energía.** Tus sensores de potencia, energía y precio:
 
-## ⚙️ Personalización
+```yaml
+entity_power: sensor.mi_medidor_power      # W, al instante
+entity_energy: sensor.mi_medidor_energy    # kWh, contador acumulado
+entity_price: sensor.esios_pvpc            # €/kWh (integración PVPC)
+price_ratio_attribute: price_ratio         # 0 = hora más barata, 1 = la más cara
+```
 
-Casi todo se ajusta en `substitutions` al principio de [`pantalla.yaml`](pantalla.yaml):
+Si tu sensor de precio no tiene `price_ratio`, el precio se muestra en gris y todo lo demás funciona.
+
+**C · Habitaciones.** Nombre, abreviatura para la leyenda del gráfico y sensores:
+
+```yaml
+room1_name: "Cocina"
+room1_short: "Coc"
+room1_temp: sensor.cocina_temperatura
+room1_hum: sensor.cocina_humedad
+```
+
+¿Tienes menos de cuatro? Busca `[room4]` en el archivo y borra los bloques marcados (después, `[room3]`…).
+
+**D · Umbrales de potencia** según tu potencia contratada:
 
 ```yaml
 power_green_max_w: "1800"   # verde por debajo
 power_amber_max_w: "3600"   # ámbar por debajo, rojo por encima
-power_gauge_max_w: "5500"   # fondo de escala (potencia contratada)
+power_gauge_max_w: "5500"   # fondo de escala
 power_alert_on_w:  "5000"   # empieza a parpadear
-graph_sample_min:  "10"     # minutos entre muestras del gráfico
-gengar_tip_steps:  "47"     # pasos entre consejos (47 × 150 ms ≈ 7 s)
+power_alert_off_w: "4800"   # deja de parpadear
 ```
 
-Los colores de cada página y habitación también están ahí (`col_*`).
+**E · Textos y formato.** Los títulos (`HOY`, `MES`, `CASA`…), la moneda y el separador decimal
+(`","` o `"."`) se traducen aquí.
+
+**F, H · Comportamiento y colores.** Tiempo de vuelta a la página principal, muestras del gráfico,
+velocidad de Gengar y todos los colores (`col_*`).
+
+**I · Primer arranque.** Déjalo a `0` y los contadores empiezan desde la primera lectura. Si quieres
+empezar con el día y el mes correctos, pon ahí la lectura del contador.
+
+### Cómo está organizado `pantalla.yaml`
+
+| Sección | Contenido |
+|---|---|
+| `substitutions` | **Toda tu configuración** (A–I) |
+| 1 · Core | Wi-Fi, API, OTA, hora |
+| 2 · Hardware | Pantalla, táctil y retroiluminación con sus pines |
+| 3 · Datos | Sensores que se leen de Home Assistant |
+| 4 · Estado | Contadores guardados en flash y funciones auxiliares |
+| 5 · Lógica | Cálculo de kWh y €, alerta, gráfico, animación de Gengar |
+| 6 · Fuentes | Tipografías y caracteres incluidos |
+| 7 · Interfaz | Las seis páginas en LVGL |
 
 ## 🚀 Compilar y flashear
 
@@ -109,8 +142,8 @@ Necesitas un `secrets.yaml` con `wifi_ssid` y `wifi_password`.
 esphome run pantalla.yaml
 ```
 
-**A través del add-on ESPHome de Home Assistant** con [`ha.py`](ha.py). Pon un token de larga duración en un archivo `.env`
-(no se sube al repo) y ajusta `HOST` en el script:
+**A través del add-on ESPHome de Home Assistant** con [`ha.py`](ha.py). Copia [`.env.example`](.env.example)
+a `.env` (no se sube al repo) y pon la URL de tu Home Assistant y un token de larga duración:
 
 ```bash
 uv run --with aiohttp python ha.py put pantalla.yaml pantalla.yaml   # subir la config
@@ -127,8 +160,9 @@ uv run --with aiohttp python ha.py logs pantalla.yaml 60             # ver el lo
 ## 📁 Estructura
 
 ```
-pantalla.yaml     configuración ESPHome completa (UI LVGL incluida)
+pantalla.yaml     configuración ESPHome completa en un solo archivo (UI LVGL incluida)
 ha.py             cliente del add-on ESPHome de Home Assistant
+.env.example      plantilla para la URL y el token de Home Assistant
 preview-*.png     capturas de cada página
 gengar.gif        animación de la página de Gengar
 ```

@@ -1,105 +1,217 @@
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  ROUND ENERGY DISPLAY  ·  PANTALLA DE ENERGÍA REDONDA                    ║
+# ║  ESP32-C3 + GC9A01A 240x240 + CST816 touch  ·  ESPHome + LVGL 9          ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+#
+# EN: Shows live power, today's / this month's energy and cost, the
+#     temperature and humidity of four rooms, a 24 h temperature graph and an
+#     animated Gengar giving energy-saving tips. All data comes from Home
+#     Assistant.
+# ES: Muestra la potencia al instante, la energía y el coste de hoy y del mes,
+#     la temperatura y humedad de cuatro habitaciones, un gráfico de 24 h y un
+#     Gengar animado que da consejos de ahorro. Todos los datos vienen de Home
+#     Assistant.
+#
+# ── HOW TO ADAPT IT · CÓMO ADAPTARLO ─────────────────────────────────────────
+#
+#  1. EN: Fill in your Home Assistant entities in "substitutions" below
+#         (sections B and C). Nothing else in the file has to change.
+#     ES: Pon tus entidades de Home Assistant en "substitutions" de abajo
+#         (secciones B y C). No hace falta tocar nada más del archivo.
+#
+#  2. EN: Adjust the power thresholds (D) to your contracted power.
+#     ES: Ajusta los umbrales de potencia (D) a tu potencia contratada.
+#
+#  3. EN: Optional: translate the on-screen texts (E) and change colours (H).
+#     ES: Opcional: traduce los textos (E) y cambia los colores (H).
+#
+#  4. EN: Create a secrets.yaml with wifi_ssid and wifi_password, then
+#         `esphome run pantalla.yaml`.
+#     ES: Crea un secrets.yaml con wifi_ssid y wifi_password y ejecuta
+#         `esphome run pantalla.yaml`.
+#
+#  EN: Fewer than four rooms? Search for "[room4]" and delete every block
+#      marked with it (then the same for [room3]...).
+#  ES: ¿Menos de cuatro habitaciones? Busca "[room4]" y borra cada bloque
+#      marcado así (y luego lo mismo con [room3]...).
+#
+#  EN: Touch: tap = next page, vertical swipe = turn the screen upside down.
+#  ES: Táctil: toque = página siguiente, deslizar vertical = girar 180°.
+# ─────────────────────────────────────────────────────────────────────────────
+
 substitutions:
+  # ── A. Device · Dispositivo ──────────────────────────────────────────────
+  # EN: Changing "name" makes it a new device for Home Assistant and OTA.
+  # ES: Cambiar "name" lo convierte en otro dispositivo para Home Assistant y OTA.
   name: "esphome-ams-display"
   friendly_name: "AMS-meter hvit"
 
-  # Live power gauge (watts)
-  power_green_max_w: "1800" # green below this
-  power_amber_max_w: "3600" # amber below this, red above
-  power_gauge_max_w: "5500" # full scale of the gauge (contracted power)
-  power_alert_on_w: "5000" # start flashing red at this power...
-  power_alert_off_w: "4800" # ...and stop once back below this
+  # ── B. Energy entities · Entidades de energía ───────────────────────────
+  entity_power: sensor.shellyem_c45bbe797a7b_channel_2_power # W, live · W, al instante
+  entity_energy: sensor.shellyem_c45bbe797a7b_channel_2_energy # kWh, ever-growing meter · kWh, contador acumulado
+  # EN: Price in €/kWh. "price_ratio" (0 = cheapest hour of the day, 1 = dearest)
+  #     comes from the PVPC (ESIOS) integration; without it the price is grey.
+  # ES: Precio en €/kWh. "price_ratio" (0 = hora más barata del día, 1 = la más
+  #     cara) viene de la integración PVPC (ESIOS); sin él el precio sale en gris.
+  entity_price: sensor.esios_pvpc
+  price_ratio_attribute: price_ratio
 
-  # Touch and orientation
-  swipe_min_px: "50" # a vertical drag at least this long flips the screen
-  madctl_color: "0x08" # colour-order bit of the panel (GC9A01A = BGR)
+  # ── C. Rooms · Habitaciones ─────────────────────────────────────────────
+  # EN: name = rooms page, short = graph legend (3 letters fit best).
+  # ES: name = página de habitaciones, short = leyenda del gráfico (mejor 3 letras).
+  room1_name: "Cocina"
+  room1_short: "Coc"
+  room1_temp: sensor.cocina_temperatura_2
+  room1_hum: sensor.cocina_humidity
+  room2_name: "Habitación"
+  room2_short: "Hab"
+  room2_temp: sensor.temperatura_habitacion_temperatura
+  room2_hum: sensor.temperatura_habitacion_humedad
+  room3_name: "Comedor"
+  room3_short: "Com"
+  room3_temp: sensor.temperatura_comedor_temperatura
+  room3_hum: sensor.temperatura_comedor_humedad
+  room4_name: "Entrada"
+  room4_short: "Ent"
+  room4_temp: sensor.lumi_lumi_weather_temperature
+  room4_hum: sensor.lumi_lumi_weather_humidity
 
-  # Rooms page columns (pixels from the left / right edge)
-  rooms_name_x: "20"
-  rooms_temp_x: "-64"
-  rooms_hum_x: "-20"
+  # ── D. Power thresholds (W) · Umbrales de potencia (W) ──────────────────
+  power_green_max_w: "1800" # green below · verde por debajo
+  power_amber_max_w: "3600" # amber below, red above · ámbar por debajo, rojo por encima
+  power_gauge_max_w: "5500" # full scale = contracted power · fondo de escala = potencia contratada
+  power_alert_on_w: "5000" # start flashing red · empieza a parpadear en rojo
+  power_alert_off_w: "4800" # stop flashing · deja de parpadear
 
-  # Temperature graph
-  graph_sample_min: "10" # minutes between samples
-  graph_points: "144" # samples kept (144 x 10 min = 24 h)
+  # ── E. Texts and format · Textos y formato ──────────────────────────────
+  # EN: Letters not in font_small's "glyphs" (section 6) will not show up.
+  # ES: Las letras que no estén en los "glyphs" de font_small (sección 6) no saldrán.
+  txt_today: "HOY"
+  txt_month: "MES"
+  txt_rooms: "CASA"
+  txt_graph: "TEMP"
+  txt_graph_now: "AHORA"
+  txt_hours: "H"
+  currency: "€"
+  decimal_sep: "," # "." for English · "," para castellano
 
-  # Palette
-  col_track: "0x1E2226"
-  col_muted: "0x8A9199"
+  # ── F. Behaviour · Comportamiento ───────────────────────────────────────
+  idle_back_to_main: "15s" # back to the power page · vuelta a la página de potencia
+  swipe_min_px: "50" # vertical drag that flips the screen · arrastre vertical que la gira
+  graph_sample_min: "10" # minutes between graph samples · minutos entre muestras
+  graph_points: "144" # samples kept (144 x 10 min = 24 h) · muestras guardadas
+  gengar_frame_ms: "150ms" # animation step · paso de animación
+  gengar_tip_steps: "47" # steps per tip (47 x 150 ms ≈ 7 s) · pasos por consejo
+
+  # ── G. Panel · Panel ────────────────────────────────────────────────────
+  madctl_color: "0x08" # colour-order bit of the GC9A01A (BGR) · bit de orden de color
+
+  # ── H. Colours · Colores ────────────────────────────────────────────────
+  col_track: "0x1E2226" # empty part of the gauge · parte vacía del arco
+  col_muted: "0x8A9199" # secondary text · texto secundario
   col_green: "0x2EE67A"
   col_amber: "0xFFB020"
   col_red: "0xFF4D4D"
   col_day: "0x38BDF8"
   col_month: "0xA78BFA"
   col_rooms: "0xF472B6"
-  col_cocina: "0xFFB020"
-  col_habitacion: "0xA78BFA"
-  col_comedor: "0x38BDF8"
-  col_entrada: "0x2EE67A"
-  col_dot_off: "0x3A4046"
+  col_room1: "0xFFB020"
+  col_room2: "0xA78BFA"
+  col_room3: "0x38BDF8"
+  col_room4: "0x2EE67A"
   col_gengar: "0x7E5CAA"
+  col_dot_off: "0x3A4046" # page indicator · indicador de página
 
-  # Gengar page
-  gengar_frame_ms: "150ms" # animation step
-  gengar_tip_steps: "47" # steps between tips (47 x 150 ms = 7 s)
+  # ── I. First boot (optional) · Primer arranque (opcional) ───────────────
+  # EN: Leave at 0 and the day / month counters simply start from the first
+  #     reading. To start with correct totals, put the meter reading (kWh) at
+  #     00:00 today and on the 1st of the month. Ignored once values are saved.
+  # ES: Déjalo a 0 y los contadores de día / mes empiezan desde la primera
+  #     lectura. Para empezar con totales correctos, pon la lectura del contador
+  #     (kWh) a las 00:00 de hoy y del día 1. Se ignora cuando ya hay datos guardados.
+  seed_day: "0" # day of month of the seeds · día del mes de las semillas
+  seed_month: "0"
+  seed_day_start_kwh: "0"
+  seed_month_start_kwh: "0"
+  seed_last_kwh: "0" # reading the costs below are valid for · lectura a la que corresponden los costes
+  seed_day_cost: "0"
+  seed_month_cost: "0"
 
-  # First-boot seeds, taken from Home Assistant statistics on 2026-10-10.
-  # They are only used until the device has stored its own values in flash;
-  # after that the day/month counters maintain themselves.
-  seed_day: "10"
-  seed_month: "10"
-  seed_day_start_kwh: "9302.2465" # meter reading at 00:00 today
-  seed_month_start_kwh: "9173.2562" # meter reading at 00:00 on the 1st
-  seed_last_kwh: "9316.0646" # meter reading the cost seeds are valid for
-  seed_day_cost: "1.625"
-  seed_month_cost: "28.63"
+# EN: Reusable lambdas (keys starting with "." are ignored by ESPHome).
+# ES: Lambdas reutilizables (ESPHome ignora las claves que empiezan por ".").
+.formatters:
+  temp: &fmt_temp !lambda |-
+    // 21.5 -> "21,5°"
+    char buf[12];
+    if (std::isnan(x)) return std::string("--");
+    snprintf(buf, sizeof(buf), "%.1f°", x);
+    for (char *p = buf; *p; p++) if (*p == '.') *p = '${decimal_sep}';
+    return std::string(buf);
+  hum: &fmt_hum !lambda |-
+    // 48.2 -> "48%"
+    char buf[12];
+    if (std::isnan(x)) return std::string("--");
+    snprintf(buf, sizeof(buf), "%.0f%%", x);
+    return std::string(buf);
+
+# ════════════════════════════════════════════════════════════════════════════
+# 1. CORE · NÚCLEO
+# ════════════════════════════════════════════════════════════════════════════
 
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
   name_add_mac_suffix: false
   on_boot:
-    priority: -100 # after the display is up: restore the saved orientation
+    priority: -100 # after the display is up · cuando la pantalla ya está lista
     then:
-      - if:
+      - if: # restore the saved rotation · recupera el giro guardado
           condition:
             lambda: return id(g_flipped);
           then:
             - script.execute: apply_orientation
+      - script.execute: { id: show_page_dot, index: 0 }
 
 esp32:
   board: esp32-c3-devkitm-1
   framework:
     type: arduino
 
-# Enable logging
 logger:
   level: INFO
 
-# Enable Home Assistant API
-api:
+api: # Home Assistant
 
-# Allow Over-The-Air updates
 ota:
   - platform: esphome
 
-# Allow provisioning Wi-Fi via serial
-improv_serial:
+improv_serial: # Wi-Fi setup over USB · configurar el Wi-Fi por USB
 
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
-  power_save_mode: none # modem sleep made the link to Home Assistant drop every few minutes
+  # EN: Modem sleep made the link to Home Assistant drop every few minutes.
+  # ES: Con el ahorro de energía la conexión con Home Assistant se caía cada pocos minutos.
+  power_save_mode: none
 
-# Reset reason of the last boot (diagnostics)
-debug:
+captive_portal: # fallback access point · punto de acceso de emergencia
 
-# In combination with the `ap` this allows the user
-# to provision wifi credentials to the device via WiFi AP.
-captive_portal:
+debug: # reset reason · motivo del último reinicio
 
-# The day/month counters live in flash; don't write them more often than needed
+# EN: The day / month counters live in flash; don't wear it out.
+# ES: Los contadores de día / mes se guardan en flash; no la desgastes.
 preferences:
   flash_write_interval: 10min
+
+time:
+  - platform: homeassistant
+    id: ha_time
+
+# ════════════════════════════════════════════════════════════════════════════
+# 2. HARDWARE
+# EN: Pins of the common "ESP32-C3 1.28in round display" board.
+# ES: Pines de la placa típica "ESP32-C3 1.28in round display".
+# ════════════════════════════════════════════════════════════════════════════
 
 spi:
   clk_pin: GPIO6
@@ -107,8 +219,7 @@ spi:
 
 output:
   - platform: ledc
-    pin:
-      number: GPIO3
+    pin: GPIO3
     id: backlight_output
 
 light:
@@ -117,27 +228,29 @@ light:
     name: LCD Backlight
     id: back_light
     restore_mode: RESTORE_DEFAULT_ON
+    # EN: No point in drawing with the backlight off.
+    # ES: No tiene sentido dibujar con la luz apagada.
     on_turn_off:
-      then:
-        lvgl.pause
+      - lvgl.pause
     on_turn_on:
-      then:
-        lvgl.resume
+      - lvgl.resume
 
 display:
   - platform: ili9xxx
-    invert_colors: true
     id: lcd_display
     model: gc9a01a
     data_rate: 80MHz
     cs_pin: GPIO10
     dc_pin: GPIO2
+    invert_colors: true
     dimensions:
       width: 240
       height: 240
-    update_interval: never
+    update_interval: never # LVGL draws · dibuja LVGL
     auto_clear_enabled: false
-    transform: # Configure to use it upside down. Remove transform-element to rotate 180
+    # EN: Default orientation; the swipe gesture rewrites it at run time (apply_orientation).
+    # ES: Orientación por defecto; el gesto de deslizar la cambia en marcha (apply_orientation).
+    transform:
       mirror_x: false
       mirror_y: true
 
@@ -152,110 +265,184 @@ touchscreen:
   interrupt_pin: 0
   reset_pin: 1
   on_touch:
-    then:
-      - lambda: |-
-          id(g_touch_x0) = id(g_touch_x1) = touch.x;
-          id(g_touch_y0) = id(g_touch_y1) = touch.y;
-          id(g_touch_woke) = false;
-      - if: # If the LCD is switched off (controllable from the HASS-device), turn on display on first touch
-          condition:
-            or:
-              - lvgl.is_paused
-              - light.is_off: back_light
-          then:
-            - lambda: id(g_touch_woke) = true;
-            - lvgl.resume
-            - lvgl.page.show: main_page
-            - light.turn_on:
-                id: back_light
+    - lambda: |-
+        // EN: Remember where the finger went down.
+        // ES: Recuerda dónde se apoyó el dedo.
+        id(g_touch_x0) = id(g_touch_x1) = touch.x;
+        id(g_touch_y0) = id(g_touch_y1) = touch.y;
+        id(g_touch_woke) = false;
+    - if: # EN: screen off -> this touch only wakes it up · ES: pantalla apagada -> este toque solo la enciende
+        condition:
+          or:
+            - lvgl.is_paused
+            - light.is_off: back_light
+        then:
+          - lambda: id(g_touch_woke) = true;
+          - lvgl.resume
+          - lvgl.page.show: main_page
+          - light.turn_on: back_light
   on_update:
-    then:
-      - lambda: |-
-          if (!touches.empty()) {
-            id(g_touch_x1) = touches[0].x;
-            id(g_touch_y1) = touches[0].y;
-          }
+    - lambda: |-
+        // EN: ...and where it is now. · ES: ...y dónde está ahora.
+        if (!touches.empty()) {
+          id(g_touch_x1) = touches[0].x;
+          id(g_touch_y1) = touches[0].y;
+        }
   on_release:
-    then:
-      - if:
-          condition:
-            lambda: return !id(g_touch_woke);
-          then:
-            - if: # a vertical drag turns the screen upside down, a tap shows the next page
-                condition:
-                  lambda: |-
-                    int dx = abs(id(g_touch_x1) - id(g_touch_x0));
-                    int dy = abs(id(g_touch_y1) - id(g_touch_y0));
-                    return dy >= ${swipe_min_px} && dy > dx;
-                then:
-                  - script.execute: flip_screen
-                else:
-                  - lvgl.page.next
+    - if:
+        condition:
+          lambda: return !id(g_touch_woke);
+        then:
+          - if: # EN: vertical drag = flip, anything else = next page · ES: arrastre vertical = girar, lo demás = página siguiente
+              condition:
+                lambda: |-
+                  int dx = abs(id(g_touch_x1) - id(g_touch_x0));
+                  int dy = abs(id(g_touch_y1) - id(g_touch_y0));
+                  return dy >= ${swipe_min_px} && dy > dx;
+              then:
+                - script.execute: flip_screen
+              else:
+                - lvgl.page.next
 
-# ---- UI ----
+# ════════════════════════════════════════════════════════════════════════════
+# 3. DATA FROM HOME ASSISTANT · DATOS DE HOME ASSISTANT
+# ════════════════════════════════════════════════════════════════════════════
 
-time:
+sensor:
+  # EN: Diagnostics shown in Home Assistant. · ES: Diagnóstico visible en Home Assistant.
+  - platform: wifi_signal
+    name: WiFi signal
+    update_interval: 30s
+  - platform: uptime
+    name: Uptime
+    update_interval: 30s
+
+  # ── Energy · Energía ──
   - platform: homeassistant
-    id: ha_time
+    id: power_w
+    entity_id: ${entity_power}
+    internal: true
+    filters:
+      - or:
+          - delta: 25 # redraw at once on a real change · redibuja ya si cambia de verdad
+          - throttle: 5s # otherwise at most every 5 s · si no, como mucho cada 5 s
+    on_value:
+      - script.execute: refresh_power
+
+  - platform: homeassistant
+    id: energy_total
+    entity_id: ${entity_energy}
+    internal: true
+    filters:
+      - throttle: 15s
+    on_value:
+      - script.execute: refresh_energy
+
+  - platform: homeassistant
+    id: price_eur
+    entity_id: ${entity_price}
+    internal: true
+    on_value:
+      - script.execute: refresh_price
+
+  - platform: homeassistant
+    id: price_ratio
+    entity_id: ${entity_price}
+    attribute: ${price_ratio_attribute}
+    internal: true
+    on_value:
+      - script.execute: refresh_price
+
+  # ── Rooms · Habitaciones ──
+  # EN: Each value goes straight to its label on the rooms page.
+  # ES: Cada valor va directo a su etiqueta en la página de habitaciones.
+  - platform: homeassistant # [room1]
+    id: room1_temp
+    entity_id: ${room1_temp}
+    internal: true
+    on_value:
+      - lvgl.label.update: { id: room1_temp_text, text: *fmt_temp }
+  - platform: homeassistant # [room1]
+    id: room1_hum
+    entity_id: ${room1_hum}
+    internal: true
+    on_value:
+      - lvgl.label.update: { id: room1_hum_text, text: *fmt_hum }
+
+  - platform: homeassistant # [room2]
+    id: room2_temp
+    entity_id: ${room2_temp}
+    internal: true
+    on_value:
+      - lvgl.label.update: { id: room2_temp_text, text: *fmt_temp }
+  - platform: homeassistant # [room2]
+    id: room2_hum
+    entity_id: ${room2_hum}
+    internal: true
+    on_value:
+      - lvgl.label.update: { id: room2_hum_text, text: *fmt_hum }
+
+  - platform: homeassistant # [room3]
+    id: room3_temp
+    entity_id: ${room3_temp}
+    internal: true
+    on_value:
+      - lvgl.label.update: { id: room3_temp_text, text: *fmt_temp }
+  - platform: homeassistant # [room3]
+    id: room3_hum
+    entity_id: ${room3_hum}
+    internal: true
+    on_value:
+      - lvgl.label.update: { id: room3_hum_text, text: *fmt_hum }
+
+  - platform: homeassistant # [room4]
+    id: room4_temp
+    entity_id: ${room4_temp}
+    internal: true
+    on_value:
+      - lvgl.label.update: { id: room4_temp_text, text: *fmt_temp }
+  - platform: homeassistant # [room4]
+    id: room4_hum
+    entity_id: ${room4_hum}
+    internal: true
+    on_value:
+      - lvgl.label.update: { id: room4_hum_text, text: *fmt_hum }
+
+text_sensor:
+  - platform: debug
+    reset_reason:
+      name: Reset reason
+  - platform: wifi_info
+    bssid:
+      name: WiFi BSSID
+
+# ════════════════════════════════════════════════════════════════════════════
+# 4. STATE AND HELPERS · ESTADO Y FUNCIONES AUXILIARES
+# EN: Globals with restore_value are kept in flash, keyed by their id:
+#     renaming one loses its saved value.
+# ES: Los globals con restore_value se guardan en flash según su id:
+#     si cambias el id se pierde lo guardado.
+# ════════════════════════════════════════════════════════════════════════════
 
 globals:
-  - id: g_alert # true while the power is near the limit
-    type: bool
-    initial_value: "false"
-  - id: g_alert_lit # current phase of the red flash
-    type: bool
-    initial_value: "false"
-  - id: g_flipped # screen turned 180 degrees by a vertical drag
-    type: bool
-    restore_value: true
-    initial_value: "false"
-  - id: g_touch_x0 # where the current touch started...
-    type: int
-    initial_value: "0"
-  - id: g_touch_y0
-    type: int
-    initial_value: "0"
-  - id: g_touch_x1 # ...and where it is now
-    type: int
-    initial_value: "0"
-  - id: g_touch_y1
-    type: int
-    initial_value: "0"
-  - id: g_touch_woke # this touch only woke the screen up
-    type: bool
-    initial_value: "false"
-  - id: g_graph_lo # temperature at the bottom of the graph
-    type: int
-    initial_value: "0"
-  - id: g_graph_hi # ...and at the top
-    type: int
-    initial_value: "0"
-  - id: g_graph_span_min # minutes of history on the graph
-    type: int
-    initial_value: "0"
-  - id: g_gengar_step # animation step of the Gengar page
-    type: int
-    initial_value: "0"
-  - id: g_tip # next tip to show on the Gengar page
-    type: int
-    initial_value: "0"
-  - id: g_day # day of month the daily counters belong to
+  # ── Day / month counters (saved) · Contadores de día / mes (guardados) ──
+  - id: g_day # day the daily counters belong to · día al que pertenecen
     type: int
     restore_value: true
     initial_value: "${seed_day}"
-  - id: g_month # month the monthly counters belong to
+  - id: g_month
     type: int
     restore_value: true
     initial_value: "${seed_month}"
-  - id: g_day_start_kwh
+  - id: g_day_start_kwh # meter reading at 00:00 · lectura a las 00:00
     type: float
     restore_value: true
     initial_value: "${seed_day_start_kwh}"
-  - id: g_month_start_kwh
+  - id: g_month_start_kwh # meter reading on the 1st · lectura del día 1
     type: float
     restore_value: true
     initial_value: "${seed_month_start_kwh}"
-  - id: g_last_kwh # last meter reading already accounted for in the costs
+  - id: g_last_kwh # last reading already costed · última lectura ya sumada al coste
     type: float
     restore_value: true
     initial_value: "${seed_last_kwh}"
@@ -268,260 +455,296 @@ globals:
     restore_value: true
     initial_value: "${seed_month_cost}"
 
-text_sensor:
-  - platform: debug
-    reset_reason:
-      name: Reset reason
-  - platform: wifi_info
-    bssid:
-      name: WiFi BSSID
+  # ── Screen (saved) · Pantalla (guardado) ──
+  - id: g_flipped # turned 180° · girada 180°
+    type: bool
+    restore_value: true
+    initial_value: "false"
 
-sensor:
-  # Diagnostics: link quality and time since the last reboot
-  - platform: wifi_signal
-    name: WiFi signal
-    update_interval: 30s
-  - platform: uptime
-    name: Uptime
-    update_interval: 30s
+  # ── Power alert · Alerta de potencia ──
+  - id: g_alert # power near the limit · potencia cerca del límite
+    type: bool
+    initial_value: "false"
+  - id: g_alert_lit # current phase of the flash · fase actual del parpadeo
+    type: bool
+    initial_value: "false"
 
-  - platform: homeassistant
-    id: power_w
-    entity_id: sensor.shellyem_c45bbe797a7b_channel_2_power
-    internal: true
-    filters:
-      - or:
-          - delta: 25 # redraw at once on a real change...
-          - throttle: 5s # ...otherwise at most every 5 s
-    on_value:
-      then:
-        - script.execute: refresh_power
+  # ── Touch gesture · Gesto táctil ──
+  - id: g_touch_x0 # where the finger went down · dónde se apoyó el dedo
+    type: int
+    initial_value: "0"
+  - id: g_touch_y0
+    type: int
+    initial_value: "0"
+  - id: g_touch_x1 # where it is now · dónde está ahora
+    type: int
+    initial_value: "0"
+  - id: g_touch_y1
+    type: int
+    initial_value: "0"
+  - id: g_touch_woke # this touch only woke the screen · este toque solo despertó la pantalla
+    type: bool
+    initial_value: "false"
 
-  - platform: homeassistant
-    id: energy_total # lifetime meter reading in kWh
-    entity_id: sensor.shellyem_c45bbe797a7b_channel_2_energy
-    internal: true
-    filters:
-      - throttle: 15s
-    on_value:
-      then:
-        - script.execute: refresh_energy
+  # ── Graph · Gráfico ──
+  - id: g_graph_lo # °C at the bottom · °C abajo
+    type: int
+    initial_value: "0"
+  - id: g_graph_hi # °C at the top · °C arriba
+    type: int
+    initial_value: "0"
+  - id: g_graph_span_min # minutes of history shown · minutos de historia
+    type: int
+    initial_value: "0"
 
-  - platform: homeassistant
-    id: price_eur # current PVPC price in EUR/kWh
-    entity_id: sensor.esios_pvpc
-    internal: true
-    on_value:
-      then:
-        - script.execute: refresh_price
+  # ── Gengar ──
+  - id: g_gengar_step # animation step · paso de animación
+    type: int
+    initial_value: "0"
+  - id: g_tip # next tip · siguiente consejo
+    type: int
+    initial_value: "0"
 
-  - platform: homeassistant
-    id: price_ratio # 0 = cheapest hour of the day, 1 = most expensive
-    entity_id: sensor.esios_pvpc
-    attribute: price_ratio
-    internal: true
-    on_value:
-      then:
-        - script.execute: refresh_price
+  # ── Helper functions · Funciones auxiliares ──
+  # EN: Small C++ functions shared by the lambdas, stored as globals so the whole
+  #     configuration stays in this one file. Call them as id(fmt_number)(1.5, 1).
+  # ES: Pequeñas funciones C++ que comparten las lambdas, guardadas como globals para
+  #     que toda la configuración quepa en este archivo. Se usan como id(fmt_number)(1.5, 1).
+  - id: fmt_number # 1234.5, 1 -> "1234,5"
+    type: std::function<std::string(float, int)>
+    initial_value: |-
+      [](float v, int decimals) {
+        char buf[20];
+        snprintf(buf, sizeof(buf), "%.*f", decimals, v);
+        for (char *p = buf; *p; p++) if (*p == '.') *p = '${decimal_sep}';
+        return std::string(buf);
+      }
+  - id: power_color # green / amber / red for a power in W · verde / ámbar / rojo según los W
+    type: std::function<lv_color_t(float)>
+    initial_value: |-
+      [](float w) {
+        if (w < ${power_green_max_w}) return lv_color_hex(${col_green});
+        if (w < ${power_amber_max_w}) return lv_color_hex(${col_amber});
+        return lv_color_hex(${col_red});
+      }
 
-  # Rooms page: temperature and humidity of every room
-  - platform: homeassistant
-    id: cocina_temp
-    entity_id: sensor.cocina_temperatura_2
-    internal: true
-    on_value:
-      then:
-        - lvgl.label.update:
-            id: cocina_temp_text
-            text: !lambda |-
-              char buf[12];
-              if (std::isnan(x)) snprintf(buf, sizeof(buf), "--");
-              else snprintf(buf, sizeof(buf), "%.1f°", x);
-              for (char *p = buf; *p; p++) if (*p == '.') *p = ',';
-              return std::string(buf);
-
-  - platform: homeassistant
-    id: cocina_hum
-    entity_id: sensor.cocina_humidity
-    internal: true
-    on_value:
-      then:
-        - lvgl.label.update:
-            id: cocina_hum_text
-            text: !lambda |-
-              char buf[12];
-              if (std::isnan(x)) snprintf(buf, sizeof(buf), "--");
-              else snprintf(buf, sizeof(buf), "%.0f%%", x);
-              return std::string(buf);
-
-  - platform: homeassistant
-    id: habitacion_temp
-    entity_id: sensor.temperatura_habitacion_temperatura
-    internal: true
-    on_value:
-      then:
-        - lvgl.label.update:
-            id: habitacion_temp_text
-            text: !lambda |-
-              char buf[12];
-              if (std::isnan(x)) snprintf(buf, sizeof(buf), "--");
-              else snprintf(buf, sizeof(buf), "%.1f°", x);
-              for (char *p = buf; *p; p++) if (*p == '.') *p = ',';
-              return std::string(buf);
-
-  - platform: homeassistant
-    id: habitacion_hum
-    entity_id: sensor.temperatura_habitacion_humedad
-    internal: true
-    on_value:
-      then:
-        - lvgl.label.update:
-            id: habitacion_hum_text
-            text: !lambda |-
-              char buf[12];
-              if (std::isnan(x)) snprintf(buf, sizeof(buf), "--");
-              else snprintf(buf, sizeof(buf), "%.0f%%", x);
-              return std::string(buf);
-
-  - platform: homeassistant
-    id: comedor_temp
-    entity_id: sensor.temperatura_comedor_temperatura
-    internal: true
-    on_value:
-      then:
-        - lvgl.label.update:
-            id: comedor_temp_text
-            text: !lambda |-
-              char buf[12];
-              if (std::isnan(x)) snprintf(buf, sizeof(buf), "--");
-              else snprintf(buf, sizeof(buf), "%.1f°", x);
-              for (char *p = buf; *p; p++) if (*p == '.') *p = ',';
-              return std::string(buf);
-
-  - platform: homeassistant
-    id: comedor_hum
-    entity_id: sensor.temperatura_comedor_humedad
-    internal: true
-    on_value:
-      then:
-        - lvgl.label.update:
-            id: comedor_hum_text
-            text: !lambda |-
-              char buf[12];
-              if (std::isnan(x)) snprintf(buf, sizeof(buf), "--");
-              else snprintf(buf, sizeof(buf), "%.0f%%", x);
-              return std::string(buf);
-
-  - platform: homeassistant
-    id: entrada_temp
-    entity_id: sensor.lumi_lumi_weather_temperature
-    internal: true
-    on_value:
-      then:
-        - lvgl.label.update:
-            id: entrada_temp_text
-            text: !lambda |-
-              char buf[12];
-              if (std::isnan(x)) snprintf(buf, sizeof(buf), "--");
-              else snprintf(buf, sizeof(buf), "%.1f°", x);
-              for (char *p = buf; *p; p++) if (*p == '.') *p = ',';
-              return std::string(buf);
-
-  - platform: homeassistant
-    id: entrada_hum
-    entity_id: sensor.lumi_lumi_weather_humidity
-    internal: true
-    on_value:
-      then:
-        - lvgl.label.update:
-            id: entrada_hum_text
-            text: !lambda |-
-              char buf[12];
-              if (std::isnan(x)) snprintf(buf, sizeof(buf), "--");
-              else snprintf(buf, sizeof(buf), "%.0f%%", x);
-              return std::string(buf);
+# ════════════════════════════════════════════════════════════════════════════
+# 5. LOGIC · LÓGICA
+# ════════════════════════════════════════════════════════════════════════════
 
 interval:
-  - interval: 1min # keeps the day/month rollover on time even with no consumption
+  - interval: 1min
     then:
+      # EN: Keeps the midnight rollover on time even with no consumption.
+      # ES: Mantiene el cambio de día puntual aunque no haya consumo.
       - script.execute: refresh_energy
       - script.execute: refresh_graph
       - lambda: |-
-          // Preventive restart every 48 h (it froze once and only came back by unplugging it)
+          // EN: Preventive restart every 48 h (it froze once and only came back by unplugging it).
+          // ES: Reinicio preventivo cada 48 h (se colgó una vez y solo volvió desenchufándolo).
           if (millis() > 48UL * 3600UL * 1000UL) App.safe_reboot();
-  - interval: ${gengar_frame_ms} # Gengar animation, only while its page is shown
+
+  - interval: 400ms
     then:
+      # EN: Red flash while the power is near the limit.
+      # ES: Parpadeo rojo mientras la potencia está cerca del límite.
+      - lambda: |-
+          id(g_alert_lit) = id(g_alert) && !id(g_alert_lit);
+          if (id(g_alert_lit)) lv_obj_remove_flag(id(alert_overlay), LV_OBJ_FLAG_HIDDEN);
+          else lv_obj_add_flag(id(alert_overlay), LV_OBJ_FLAG_HIDDEN);
+
+  - interval: ${gengar_frame_ms}
+    then:
+      # EN: Animate Gengar only while its page is on screen.
+      # ES: Anima a Gengar solo mientras su página está en pantalla.
       - if:
           condition:
             lambda: return lv_screen_active() == id(gengar_page)->obj;
           then:
             - script.execute: gengar_step
-  - interval: 400ms # red flash while the power is near the limit
-    then:
-      - if:
-          condition:
-            lambda: return id(g_alert);
-          then:
-            - lambda: id(g_alert_lit) = !id(g_alert_lit);
-            - if:
-                condition:
-                  lambda: return id(g_alert_lit);
-                then:
-                  - lvgl.widget.show: alert_overlay
-                else:
-                  - lvgl.widget.hide: alert_overlay
-          else:
-            - if:
-                condition:
-                  lambda: return id(g_alert_lit);
-                then:
-                  - lambda: id(g_alert_lit) = false;
-                  - lvgl.widget.hide: alert_overlay
 
 script:
+  # ── Orientation · Orientación ───────────────────────────────────────────
   - id: flip_screen
     then:
       - lambda: |-
           id(g_flipped) = !id(g_flipped);
-          global_preferences->sync(); // keep the orientation even if unplugged right away
+          global_preferences->sync(); // EN: save now, in case it is unplugged · ES: guarda ya, por si lo desenchufan
       - script.execute: apply_orientation
 
   - id: apply_orientation
     then:
       - lambda: |-
-          // Rewrite the panel's scan direction (MADCTL): normal = mirror Y, flipped = mirror X
+          // EN: Rewrite the panel's scan direction (MADCTL): normal = mirror Y, flipped = mirror X.
+          // ES: Reescribe la dirección de barrido del panel (MADCTL): normal = espejo Y, girada = espejo X.
           id(lcd_display).command(0x36);
           id(lcd_display).data(${madctl_color} | (id(g_flipped) ? 0x40 : 0x80));
       - lvgl.widget.redraw:
 
+  # ── Page indicator · Indicador de página ────────────────────────────────
+  - id: show_page_dot
+    parameters:
+      index: int
+    then:
+      - lambda: |-
+          // EN: Light the dot of the current page (dots live in the top layer).
+          // ES: Enciende el punto de la página actual (los puntos están en la capa superior).
+          lv_obj_t *dots[] = {id(dot0), id(dot1), id(dot2), id(dot3), id(dot4), id(dot5)};
+          for (int i = 0; i < 6; i++)
+            lv_obj_set_style_bg_color(dots[i], lv_color_hex(i == index ? 0xFFFFFF : ${col_dot_off}), 0);
+
+  # ── Power page · Página de potencia ─────────────────────────────────────
+  - id: refresh_power
+    then:
+      - if:
+          # EN: Alert with hysteresis; when it starts, wake up and show the power page.
+          # ES: Alerta con histéresis; al empezar, enciende y muestra la página de potencia.
+          condition:
+            lambda: |-
+              float w = id(power_w).state;
+              bool was = id(g_alert);
+              if (std::isnan(w) || w < ${power_alert_off_w}) id(g_alert) = false;
+              else if (w >= ${power_alert_on_w}) id(g_alert) = true;
+              return id(g_alert) && !was;
+          then:
+            - light.turn_on: back_light
+            - lvgl.resume
+            - lvgl.page.show: main_page
+      - lvgl.arc.update:
+          id: power_arc
+          value: !lambda |-
+            float w = id(power_w).state;
+            if (std::isnan(w) || w < 0) return 0;
+            return (int) std::min(w, (float) ${power_gauge_max_w});
+          indicator:
+            arc_color: !lambda return id(power_color)(id(power_w).state);
+      - lvgl.label.update:
+          id: power_value
+          text: !lambda |-
+            // EN: "850" below 1 kW, "1,25" (kW) above · ES: "850" por debajo de 1 kW, "1,25" (kW) por encima
+            float w = id(power_w).state;
+            if (std::isnan(w)) return std::string("--");
+            return w < 1000 ? id(fmt_number)(w, 0) : id(fmt_number)(w / 1000, 2);
+          text_color: !lambda 'return lv_color_hex(id(g_alert) ? ${col_red} : 0xFFFFFF);'
+      - lvgl.label.update:
+          id: power_unit
+          text: !lambda 'return std::string(id(power_w).state >= 1000 ? "kW" : "W");'
+      - lvgl.image.update:
+          id: power_icon
+          image_recolor: !lambda return id(power_color)(id(power_w).state);
+
+  - id: refresh_price
+    then:
+      - lvgl.label.update:
+          id: price_text
+          text: !lambda |-
+            float p = id(price_eur).state;
+            return (std::isnan(p) ? std::string("--") : id(fmt_number)(p, 3)) + " ${currency}/kWh";
+          text_color: !lambda |-
+            // EN: Cheap / normal / dear third of the day · ES: tercio barato / normal / caro del día
+            float r = id(price_ratio).state;
+            if (std::isnan(r)) return lv_color_hex(${col_muted});
+            if (r < 0.34f) return lv_color_hex(${col_green});
+            if (r < 0.67f) return lv_color_hex(${col_amber});
+            return lv_color_hex(${col_red});
+
+  # ── Day / month pages · Páginas de día / mes ────────────────────────────
+  - id: refresh_energy
+    then:
+      - lambda: |-
+          // EN: Today's / this month's kWh and cost, derived from the ever-growing meter reading.
+          //     The cost adds each new kWh at the price of that moment.
+          // ES: kWh y coste de hoy / del mes, a partir de la lectura acumulada del contador.
+          //     El coste suma cada kWh nuevo al precio de ese momento.
+          float e = id(energy_total).state;
+          if (std::isnan(e) || e <= 0) return;
+          float d = e - id(g_last_kwh);
+          if (id(g_last_kwh) <= 0) {
+            // EN: very first reading: nothing to cost yet · ES: primerísima lectura: nada que costear aún
+          } else if (d < -0.01f) {
+            // EN: the meter went backwards (reset): shift the baselines with it
+            // ES: el contador fue hacia atrás (reinicio): mueve las referencias con él
+            id(g_day_start_kwh) += d;
+            id(g_month_start_kwh) += d;
+          } else if (d > 0) {
+            float p = id(price_eur).state;
+            if (!std::isnan(p)) {
+              id(g_day_cost) += d * p;
+              id(g_month_cost) += d * p;
+            }
+          }
+          id(g_last_kwh) = e;
+
+          // EN: New day / month: start counting again from this reading.
+          // ES: Día / mes nuevo: vuelve a contar desde esta lectura.
+          auto now = id(ha_time).now();
+          if (!now.is_valid()) return;
+          if (now.month != id(g_month)) {
+            id(g_month) = now.month;
+            id(g_month_start_kwh) = e;
+            id(g_month_cost) = 0;
+          }
+          if (now.day_of_month != id(g_day)) {
+            id(g_day) = now.day_of_month;
+            id(g_day_start_kwh) = e;
+            id(g_day_cost) = 0;
+          }
+      - lvgl.label.update:
+          id: day_kwh_text
+          text: !lambda |-
+            float e = id(energy_total).state;
+            if (std::isnan(e) || e <= 0) return std::string("--");
+            float v = e - id(g_day_start_kwh);
+            return id(fmt_number)(v, v < 100 ? 1 : 0);
+      - lvgl.label.update:
+          id: day_cost_text
+          text: !lambda return id(fmt_number)(id(g_day_cost), 2) + " ${currency}";
+      - lvgl.label.update:
+          id: month_kwh_text
+          text: !lambda |-
+            float e = id(energy_total).state;
+            if (std::isnan(e) || e <= 0) return std::string("--");
+            float v = e - id(g_month_start_kwh);
+            return id(fmt_number)(v, v < 1000 ? 1 : 0);
+      - lvgl.label.update:
+          id: month_cost_text
+          text: !lambda return id(fmt_number)(id(g_month_cost), 2) + " ${currency}";
+
+  # ── Graph page · Página del gráfico ─────────────────────────────────────
   - id: refresh_graph
     then:
       - lambda: |-
-          // Temperature history of every room, kept in RAM (it starts again after a reboot)
-          const int N = ${graph_points}, ROOMS = 4;
-          const int X0 = 58, X1 = 212, Y0 = 74, Y1 = 166; // plot area in screen pixels
+          // EN: Temperature history of every room, kept in RAM (starts again after a reboot).
+          // ES: Historial de temperatura de cada habitación, en RAM (empieza de cero al reiniciar).
+          const int N = ${graph_points};
+          const int X0 = 58, X1 = 212, Y0 = 74, Y1 = 166; // plot area in pixels · área del gráfico en píxeles
+          // [room1] [room2] [room3] [room4]: one entry per room · una entrada por habitación
+          float cur[] = {id(room1_temp).state, id(room2_temp).state, id(room3_temp).state, id(room4_temp).state};
+          lv_obj_t *lines[] = {id(room1_line)->obj, id(room2_line)->obj, id(room3_line)->obj, id(room4_line)->obj};
+          const int ROOMS = sizeof(cur) / sizeof(cur[0]);
           static float hist[ROOMS][N];
           static lv_point_precise_t pts[ROOMS][N];
           static int n = 0;
           static uint32_t last_ms = 0;
-          float cur[ROOMS] = {id(cocina_temp).state, id(habitacion_temp).state,
-                              id(comedor_temp).state, id(entrada_temp).state};
-          lv_obj_t *lines[ROOMS] = {id(cocina_line)->obj, id(habitacion_line)->obj,
-                                    id(comedor_line)->obj, id(entrada_line)->obj};
+
+          // EN: Take a sample every graph_sample_min minutes, dropping the oldest when full.
+          // ES: Toma una muestra cada graph_sample_min minutos y descarta la más vieja si está lleno.
           bool any = false;
           for (float v : cur) any = any || !std::isnan(v);
           if (!any) return;
           uint32_t now_ms = millis();
           if (n > 0 && now_ms - last_ms < ${graph_sample_min} * 60000UL) return;
           last_ms = now_ms;
-          if (n == N) { // full: drop the oldest sample
+          if (n == N) {
             for (int r = 0; r < ROOMS; r++) memmove(hist[r], hist[r] + 1, (N - 1) * sizeof(float));
             n--;
           }
-          for (int r = 0; r < ROOMS; r++) // a room without a reading keeps its last value
+          for (int r = 0; r < ROOMS; r++) // a room with no reading keeps its last value · sin lectura conserva el último valor
             hist[r][n] = (std::isnan(cur[r]) && n > 0) ? hist[r][n - 1] : cur[r];
           n++;
 
+          // EN: Vertical scale: whole degrees around all values, at least 2 °C tall.
+          // ES: Escala vertical: grados enteros que abarcan todo, como mínimo 2 °C.
           float lo = NAN, hi = NAN;
           for (int r = 0; r < ROOMS; r++)
             for (int i = 0; i < n; i++) {
@@ -536,7 +759,9 @@ script:
           id(g_graph_hi) = ihi;
           id(g_graph_span_min) = (n - 1) * ${graph_sample_min};
 
-          int count = n < 2 ? 2 : n; // a single sample is drawn as a flat line
+          // EN: One polyline per room across the whole width (a single sample = flat line).
+          // ES: Una línea por habitación a todo el ancho (una sola muestra = línea plana).
+          int count = n < 2 ? 2 : n;
           for (int r = 0; r < ROOMS; r++) {
             float first = NAN;
             for (int i = 0; i < n && std::isnan(first); i++) first = hist[r][i];
@@ -551,25 +776,28 @@ script:
           }
       - lvgl.label.update:
           id: graph_hi_text
-          text: !lambda |-
-            return std::to_string(id(g_graph_hi)) + "°";
+          text: !lambda return std::to_string(id(g_graph_hi)) + "°";
       - lvgl.label.update:
           id: graph_lo_text
-          text: !lambda |-
-            return std::to_string(id(g_graph_lo)) + "°";
+          text: !lambda return std::to_string(id(g_graph_lo)) + "°";
       - lvgl.label.update:
           id: graph_title
           text: !lambda |-
             int m = id(g_graph_span_min);
-            if (m < 60) return std::string("TEMP AHORA");
-            return "TEMP " + std::to_string(m / 60) + " H";
+            if (m < 60) return std::string("${txt_graph} ${txt_graph_now}");
+            return "${txt_graph} " + std::to_string(m / 60) + " ${txt_hours}";
 
+  # ── Gengar page · Página de Gengar ──────────────────────────────────────
   - id: gengar_step
     then:
       - lambda: |-
-          // 32x32 pixel-art Gengar drawn 3x bigger on a canvas; it floats up and down,
-          // blinks every few seconds and now and then sticks its tongue out
-          static const char *const FRAMES[3] = { // one 32x32 map per frame
+          // EN: 32x32 pixel-art Gengar drawn 3x bigger on a 96x96 canvas (LVGL here cannot
+          //     scale an RGB565 canvas). It floats up and down, blinks every few seconds
+          //     and now and then sticks its tongue out.
+          // ES: Gengar en pixel art de 32x32 dibujado al triple en un canvas de 96x96 (aquí
+          //     LVGL no puede escalar un canvas RGB565). Flota arriba y abajo, parpadea cada
+          //     pocos segundos y de vez en cuando saca la lengua.
+          static const char *const FRAMES[3] = { // one 32x32 map per frame · un mapa 32x32 por fotograma
             // open
             "................................"
             "................................"
@@ -670,11 +898,13 @@ script:
             "........oooo.......oooo........."
             "................................"
           };
-          static const int BOB[] = {0, -1, -2, -3, -4, -4, -3, -2, -1, 0, 0, 0};
+          static const int BOB[] = {0, -1, -2, -3, -4, -4, -3, -2, -1, 0, 0, 0}; // float offset · desplazamiento
           static int shown = -1;
           lv_obj_t *c = id(gengar_canvas);
           int t = id(g_gengar_step)++;
-          int f = t % 27 == 26 ? 1 : (t % 64 >= 50 && t % 64 < 57 ? 2 : 0);
+          int f = t % 27 == 26 ? 1 : (t % 64 >= 50 && t % 64 < 57 ? 2 : 0); // 0 open, 1 blink, 2 tongue
+
+          // EN: Repaint only when the frame changes. · ES: Repinta solo si cambia el fotograma.
           if (f != shown) {
             shown = f;
             lv_draw_buf_t *buf = lv_canvas_get_draw_buf(c);
@@ -682,20 +912,19 @@ script:
               for (int x = 0; x < 32; x++) {
                 uint32_t col;
                 switch (FRAMES[f][y * 32 + x]) {
-                  case 'o': col = 0x1A0E28; break; // outline
-                  case 'p': col = ${col_gengar}; break; // body
-                  case 'd': col = 0x583C80; break; // shade
-                  case 'h': col = 0xA888CE; break; // highlight
-                  case 'r': col = 0xFF3050; break; // eye
-                  case 'k': col = 0x6E0014; break; // pupil
-                  case 'w': col = 0xFFFFFF; break; // teeth
-                  case 'g': col = 0xAAAABE; break; // gaps between the teeth
-                  case 't': col = 0xFF6E96; break; // tongue
+                  case 'o': col = 0x1A0E28; break; // outline · contorno
+                  case 'p': col = ${col_gengar}; break; // body · cuerpo
+                  case 'd': col = 0x583C80; break; // shade · sombra
+                  case 'h': col = 0xA888CE; break; // highlight · brillo
+                  case 'r': col = 0xFF3050; break; // eye · ojo
+                  case 'k': col = 0x6E0014; break; // pupil · pupila
+                  case 'w': col = 0xFFFFFF; break; // teeth · dientes
+                  case 'g': col = 0xAAAABE; break; // gaps between teeth · huecos entre dientes
+                  case 't': col = 0xFF6E96; break; // tongue · lengua
                   default: col = 0x000000;
                 }
-                // each sprite pixel is a 3x3 block (LVGL can't scale an RGB565 canvas)
                 uint16_t px = lv_color_to_u16(lv_color_hex(col));
-                for (int dy = 0; dy < 3; dy++) {
+                for (int dy = 0; dy < 3; dy++) { // 3x3 block · bloque de 3x3
                   uint16_t *row = (uint16_t *) (buf->data + (y * 3 + dy) * buf->header.stride);
                   row[x * 3] = row[x * 3 + 1] = row[x * 3 + 2] = px;
                 }
@@ -714,25 +943,30 @@ script:
       - lvgl.label.update:
           id: gengar_tip_text
           text: !lambda |-
+            // EN: Add or change tips freely; keep them short (3 lines) and add any new
+            //     letters to the glyphs of font_tip.
+            // ES: Añade o cambia consejos libremente; que sean cortos (3 líneas) y añade
+            //     las letras nuevas a los glyphs de font_tip.
             static const char *const TIPS[] = {
-            "Apaga la luz al salir... ¡la oscuridad es mía!",
-            "El standby chupa energía. Yo solo chupo sombras.",
-            "Lavadora llena y en hora barata. ¡Ji ji ji!",
-            "Nevera abierta: el frío se escapa... como yo.",
-            "Tapa la olla: hierve antes y gastas menos.",
-            "¿Horno encendido 20 min antes? ¡Ni yo espero tanto!",
-            "Cargador enchufado sin móvil = vampiro de energía.",
-            "Un grado menos de calefacción, un susto menos en la factura.",
-            "Los fantasmas no pagamos la luz. Tú sí. ¡Ji ji!",
-            "Te estoy mirando desde detrás de la pantalla...",
-            "Si oyes un ruido raro, era yo. Apaga la tele.",
-            "Lavavajillas en modo eco: tarda más, gasta menos.",
-            "Ropa con agua fría. El calor, para mis travesuras.",
-            "Baja las persianas al anochecer y guarda el calor.",
+              "Apaga la luz al salir... ¡la oscuridad es mía!",
+              "El standby chupa energía. Yo solo chupo sombras.",
+              "Lavadora llena y en hora barata. ¡Ji ji ji!",
+              "Nevera abierta: el frío se escapa... como yo.",
+              "Tapa la olla: hierve antes y gastas menos.",
+              "¿Horno encendido 20 min antes? ¡Ni yo espero tanto!",
+              "Cargador enchufado sin móvil = vampiro de energía.",
+              "Un grado menos de calefacción, un susto menos en la factura.",
+              "Los fantasmas no pagamos la luz. Tú sí. ¡Ji ji!",
+              "Te estoy mirando desde detrás de la pantalla...",
+              "Si oyes un ruido raro, era yo. Apaga la tele.",
+              "Lavavajillas en modo eco: tarda más, gasta menos.",
+              "Ropa con agua fría. El calor, para mis travesuras.",
+              "Baja las persianas al anochecer y guarda el calor.",
             };
             const int N = sizeof(TIPS) / sizeof(TIPS[0]);
             int i = id(g_tip)++;
-            // every third tip reacts to what is happening right now
+            // EN: Every third tip reacts to what is happening right now.
+            // ES: Uno de cada tres consejos reacciona a lo que pasa ahora mismo.
             if (i % 3 == 0) {
               float w = id(power_w).state, r = id(price_ratio).state;
               if (w >= ${power_amber_max_w}) return std::string("¡Cuánto gastas! Hasta a mí me da miedo.");
@@ -741,173 +975,30 @@ script:
             }
             return std::string(TIPS[(i - i / 3) % N]);
 
-  - id: refresh_power
-    then:
-      - if: # near the limit: wake the screen and jump to the power page
-          condition:
-            lambda: |-
-              float w = id(power_w).state;
-              bool was = id(g_alert);
-              if (std::isnan(w) || w < ${power_alert_off_w}) id(g_alert) = false;
-              else if (w >= ${power_alert_on_w}) id(g_alert) = true;
-              return id(g_alert) && !was;
-          then:
-            - light.turn_on:
-                id: back_light
-            - lvgl.resume
-            - lvgl.page.show: main_page
-      - lvgl.arc.update:
-          id: power_arc
-          value: !lambda |-
-            float w = id(power_w).state;
-            if (std::isnan(w) || w < 0) return 0;
-            return (int) std::min(w, (float) ${power_gauge_max_w});
-          indicator:
-            arc_color: !lambda |-
-              float w = id(power_w).state;
-              if (w < ${power_green_max_w}) return lv_color_hex(${col_green});
-              if (w < ${power_amber_max_w}) return lv_color_hex(${col_amber});
-              return lv_color_hex(${col_red});
-      - lvgl.label.update:
-          id: power_value
-          text: !lambda |-
-            char buf[12];
-            float w = id(power_w).state;
-            if (std::isnan(w)) snprintf(buf, sizeof(buf), "--");
-            else if (w < 1000) snprintf(buf, sizeof(buf), "%.0f", w);
-            else snprintf(buf, sizeof(buf), "%.2f", w / 1000);
-            for (char *p = buf; *p; p++) if (*p == '.') *p = ',';
-            return std::string(buf);
-          text_color: !lambda |-
-            return lv_color_hex(id(g_alert) ? ${col_red} : 0xFFFFFF);
-      - lvgl.label.update:
-          id: power_unit
-          text: !lambda |-
-            return std::string(id(power_w).state >= 1000 ? "kW" : "W");
-      - lvgl.image.update:
-          id: power_icon
-          image_recolor: !lambda |-
-            float w = id(power_w).state;
-            if (w < ${power_green_max_w}) return lv_color_hex(${col_green});
-            if (w < ${power_amber_max_w}) return lv_color_hex(${col_amber});
-            return lv_color_hex(${col_red});
-
-  - id: refresh_price
-    then:
-      - lvgl.label.update:
-          id: price_text
-          text: !lambda |-
-            char buf[20];
-            float p = id(price_eur).state;
-            if (std::isnan(p)) snprintf(buf, sizeof(buf), "-- €/kWh");
-            else snprintf(buf, sizeof(buf), "%.3f €/kWh", p);
-            for (char *c = buf; *c; c++) if (*c == '.') *c = ',';
-            return std::string(buf);
-          text_color: !lambda |-
-            float r = id(price_ratio).state;
-            if (std::isnan(r)) return lv_color_hex(${col_muted});
-            if (r < 0.34f) return lv_color_hex(${col_green});
-            if (r < 0.67f) return lv_color_hex(${col_amber});
-            return lv_color_hex(${col_red});
-
-  - id: refresh_energy
-    then:
-      - lambda: |-
-          // Derive today's / this month's kWh and cost from the lifetime meter reading.
-          float e = id(energy_total).state;
-          if (std::isnan(e) || e <= 0) return;
-          float d = e - id(g_last_kwh);
-          if (d < -0.01f) {
-            // The meter counter went backwards (reset): shift the baselines with it
-            id(g_day_start_kwh) += d;
-            id(g_month_start_kwh) += d;
-          } else if (d > 0) {
-            float p = id(price_eur).state;
-            if (!std::isnan(p)) {
-              id(g_day_cost) += d * p;
-              id(g_month_cost) += d * p;
-            }
-          }
-          id(g_last_kwh) = e;
-          auto now = id(ha_time).now();
-          if (now.is_valid()) {
-            if (now.month != id(g_month)) {
-              id(g_month) = now.month;
-              id(g_month_start_kwh) = e;
-              id(g_month_cost) = 0;
-            }
-            if (now.day_of_month != id(g_day)) {
-              id(g_day) = now.day_of_month;
-              id(g_day_start_kwh) = e;
-              id(g_day_cost) = 0;
-            }
-          }
-      - lvgl.label.update:
-          id: day_kwh_text
-          text: !lambda |-
-            char buf[12];
-            float e = id(energy_total).state;
-            float v = e - id(g_day_start_kwh);
-            if (std::isnan(e) || e <= 0) snprintf(buf, sizeof(buf), "--");
-            else snprintf(buf, sizeof(buf), v < 100 ? "%.1f" : "%.0f", v);
-            for (char *p = buf; *p; p++) if (*p == '.') *p = ',';
-            return std::string(buf);
-      - lvgl.label.update:
-          id: day_cost_text
-          text: !lambda |-
-            char buf[16];
-            snprintf(buf, sizeof(buf), "%.2f €", id(g_day_cost));
-            for (char *p = buf; *p; p++) if (*p == '.') *p = ',';
-            return std::string(buf);
-      - lvgl.label.update:
-          id: month_kwh_text
-          text: !lambda |-
-            char buf[12];
-            float e = id(energy_total).state;
-            float v = e - id(g_month_start_kwh);
-            if (std::isnan(e) || e <= 0) snprintf(buf, sizeof(buf), "--");
-            else snprintf(buf, sizeof(buf), v < 1000 ? "%.1f" : "%.0f", v);
-            for (char *p = buf; *p; p++) if (*p == '.') *p = ',';
-            return std::string(buf);
-      - lvgl.label.update:
-          id: month_cost_text
-          text: !lambda |-
-            char buf[16];
-            snprintf(buf, sizeof(buf), "%.2f €", id(g_month_cost));
-            for (char *p = buf; *p; p++) if (*p == '.') *p = ',';
-            return std::string(buf);
+# ════════════════════════════════════════════════════════════════════════════
+# 6. FONTS AND IMAGES · FUENTES E IMÁGENES
+# EN: Only the listed "glyphs" are built into the firmware.
+# ES: Solo se incluyen en el firmware los "glyphs" de la lista.
+# ════════════════════════════════════════════════════════════════════════════
 
 font:
-  - file:
-      type: gfonts
-      family: Montserrat
-      weight: 600
-    id: font_huge
+  - file: { type: gfonts, family: Montserrat, weight: 600 }
+    id: font_huge # big numbers · números grandes
     size: 58
     bpp: 4
-    glyphs: "0123456789,-"
-  - file:
-      type: gfonts
-      family: Montserrat
-      weight: 600
-    id: font_mid
+    glyphs: "0123456789,.-"
+  - file: { type: gfonts, family: Montserrat, weight: 600 }
+    id: font_mid # costs · costes
     size: 30
     bpp: 4
-    glyphs: "0123456789,-€ "
-  - file:
-      type: gfonts
-      family: Montserrat
-      weight: 500
-    id: font_small
+    glyphs: "0123456789,.-€$£ "
+  - file: { type: gfonts, family: Montserrat, weight: 500 }
+    id: font_small # labels · etiquetas
     size: 18
     bpp: 4
-    glyphs: "0123456789,-€/°% ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzó"
-
-  - file:
-      type: gfonts
-      family: Montserrat
-      weight: 500
-    id: font_tip
+    glyphs: "0123456789,.-€$£/°% ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzáéíóúñÁÉÍÓÚÑ"
+  - file: { type: gfonts, family: Montserrat, weight: 500 }
+    id: font_tip # Gengar tips · consejos de Gengar
     size: 16
     bpp: 4
     glyphs: " !,.02:=?ABCDEHJLNPRSTUYabcdefghijlmnoprstuvyz¡¿áíóú"
@@ -920,6 +1011,14 @@ image:
     type: GRAYSCALE
     transparency: alpha_channel
 
+# ════════════════════════════════════════════════════════════════════════════
+# 7. USER INTERFACE · INTERFAZ
+# EN: Pages in order; a tap shows the next one. Coordinates are offsets from
+#     the centre of the 240x240 screen.
+# ES: Páginas en orden; un toque pasa a la siguiente. Las coordenadas son
+#     desplazamientos desde el centro de la pantalla de 240x240.
+# ════════════════════════════════════════════════════════════════════════════
+
 lvgl:
   touchscreens: my_touchscreen
   log_level: WARN
@@ -929,13 +1028,19 @@ lvgl:
   outline_width: 0
   shadow_width: 0
   text_font: font_small
+  page_wrap: true
+  on_idle:
+    - timeout: ${idle_back_to_main}
+      then:
+        - lvgl.page.show: main_page
+
   style_definitions:
     - id: st_page
       bg_color: 0x000000
       bg_opa: COVER
       border_width: 0
       pad_all: 0
-    - id: st_dot # page indicator dot
+    - id: st_dot # page indicator dot · punto del indicador de página
       width: 8
       height: 8
       radius: 4
@@ -944,7 +1049,7 @@ lvgl:
       bg_color: ${col_dot_off}
       align: CENTER
       y: 100
-    - id: st_ring # thin coloured ring around the day / month pages
+    - id: st_ring # coloured ring around a page · aro de color alrededor de la página
       width: 236
       height: 236
       radius: 118
@@ -952,6 +1057,9 @@ lvgl:
       bg_opa: TRANSP
       border_width: 3
       pad_all: 0
+    - id: st_title # page title · título de la página
+      align: CENTER
+      y: -80
     - id: st_divider
       width: 84
       height: 2
@@ -960,14 +1068,28 @@ lvgl:
       border_width: 0
       bg_opa: COVER
       bg_color: ${col_track}
-  on_idle: # Go back to main page after 15 sec
-    - timeout: 15 sec
-      then:
-        - lvgl.page.show: main_page
-  page_wrap: true
+    - id: st_room_name # rooms page columns · columnas de la página de habitaciones
+      align: LEFT_MID
+      x: 20
+    - id: st_room_temp
+      align: RIGHT_MID
+      x: -64
+      text_color: 0xFFFFFF
+    - id: st_room_hum
+      align: RIGHT_MID
+      x: -20
+      text_color: ${col_muted}
+    - id: st_graph_line
+      x: 0
+      y: 0
+      line_width: 2
+      line_rounded: true
+
+  # EN: Drawn over every page: the alert flash and the page dots.
+  # ES: Se dibuja encima de todas las páginas: el parpadeo de alerta y los puntos.
   top_layer:
     widgets:
-      - obj: # red flash shown over every page while the power is near the limit
+      - obj:
           id: alert_overlay
           hidden: true
           clickable: false
@@ -981,11 +1103,20 @@ lvgl:
           bg_opa: 25%
           border_color: ${col_red}
           border_width: 16
+      - obj: { id: dot0, styles: st_dot, x: -35, clickable: false }
+      - obj: { id: dot1, styles: st_dot, x: -21, clickable: false }
+      - obj: { id: dot2, styles: st_dot, x: -7, clickable: false }
+      - obj: { id: dot3, styles: st_dot, x: 7, clickable: false }
+      - obj: { id: dot4, styles: st_dot, x: 21, clickable: false }
+      - obj: { id: dot5, styles: st_dot, x: 35, clickable: false }
+
   pages:
-    # Live power
+    # ── 0. Power now · Potencia ahora ───────────────────────────────────────
     - id: main_page
       styles: st_page
       scrollable: false
+      on_load:
+        - script.execute: { id: show_page_dot, index: 0 }
       widgets:
         - arc:
             id: power_arc
@@ -1030,40 +1161,17 @@ lvgl:
             align: CENTER
             y: 64
             text_color: ${col_muted}
-            text: "-- €/kWh"
-        - obj:
-            styles: st_dot
-            x: -35
-            bg_color: 0xFFFFFF
-        - obj:
-            styles: st_dot
-            x: -21
-        - obj:
-            styles: st_dot
-            x: -7
-        - obj:
-            styles: st_dot
-            x: 7
-        - obj:
-            styles: st_dot
-            x: 21
-        - obj:
-            styles: st_dot
-            x: 35
+            text: "-- ${currency}/kWh"
 
-    # Today
+    # ── 1. Today · Hoy ──────────────────────────────────────────────────────
     - id: day_page
       styles: st_page
       scrollable: false
+      on_load:
+        - script.execute: { id: show_page_dot, index: 1 }
       widgets:
-        - obj:
-            styles: st_ring
-            border_color: ${col_day}
-        - label:
-            align: CENTER
-            y: -80
-            text_color: ${col_day}
-            text: "HOY"
+        - obj: { styles: st_ring, border_color: "${col_day}" }
+        - label: { styles: st_title, text_color: "${col_day}", text: "${txt_today}" }
         - label:
             id: day_kwh_text
             align: CENTER
@@ -1071,54 +1179,25 @@ lvgl:
             text_font: font_huge
             text_color: 0xFFFFFF
             text: "--"
-        - label:
-            align: CENTER
-            y: 10
-            text_color: ${col_muted}
-            text: "kWh"
-        - obj:
-            styles: st_divider
-            y: 34
+        - label: { align: CENTER, y: 10, text_color: "${col_muted}", text: "kWh" }
+        - obj: { styles: st_divider, y: 34 }
         - label:
             id: day_cost_text
             align: CENTER
             y: 62
             text_font: font_mid
             text_color: 0xFFFFFF
-            text: "-- €"
-        - obj:
-            styles: st_dot
-            x: -35
-        - obj:
-            styles: st_dot
-            x: -21
-            bg_color: 0xFFFFFF
-        - obj:
-            styles: st_dot
-            x: -7
-        - obj:
-            styles: st_dot
-            x: 7
-        - obj:
-            styles: st_dot
-            x: 21
-        - obj:
-            styles: st_dot
-            x: 35
+            text: "-- ${currency}"
 
-    # This month
+    # ── 2. This month · Este mes ────────────────────────────────────────────
     - id: month_page
       styles: st_page
       scrollable: false
+      on_load:
+        - script.execute: { id: show_page_dot, index: 2 }
       widgets:
-        - obj:
-            styles: st_ring
-            border_color: ${col_month}
-        - label:
-            align: CENTER
-            y: -80
-            text_color: ${col_month}
-            text: "MES"
+        - obj: { styles: st_ring, border_color: "${col_month}" }
+        - label: { styles: st_title, text_color: "${col_month}", text: "${txt_month}" }
         - label:
             id: month_kwh_text
             align: CENTER
@@ -1126,286 +1205,80 @@ lvgl:
             text_font: font_huge
             text_color: 0xFFFFFF
             text: "--"
-        - label:
-            align: CENTER
-            y: 10
-            text_color: ${col_muted}
-            text: "kWh"
-        - obj:
-            styles: st_divider
-            y: 34
+        - label: { align: CENTER, y: 10, text_color: "${col_muted}", text: "kWh" }
+        - obj: { styles: st_divider, y: 34 }
         - label:
             id: month_cost_text
             align: CENTER
             y: 62
             text_font: font_mid
             text_color: 0xFFFFFF
-            text: "-- €"
-        - obj:
-            styles: st_dot
-            x: -35
-        - obj:
-            styles: st_dot
-            x: -21
-        - obj:
-            styles: st_dot
-            x: -7
-            bg_color: 0xFFFFFF
-        - obj:
-            styles: st_dot
-            x: 7
-        - obj:
-            styles: st_dot
-            x: 21
-        - obj:
-            styles: st_dot
-            x: 35
+            text: "-- ${currency}"
 
-    # Rooms
+    # ── 3. Rooms · Habitaciones ─────────────────────────────────────────────
+    # EN: One row per room: name, temperature, humidity.
+    # ES: Una fila por habitación: nombre, temperatura, humedad.
     - id: rooms_page
       styles: st_page
       scrollable: false
+      on_load:
+        - script.execute: { id: show_page_dot, index: 3 }
       widgets:
-        - obj:
-            styles: st_ring
-            border_color: ${col_rooms}
-        - label:
-            align: CENTER
-            y: -80
-            text_color: ${col_rooms}
-            text: "CASA"
-        - label:
-            align: LEFT_MID
-            x: ${rooms_name_x}
-            y: -45
-            text_color: ${col_cocina}
-            text: "Cocina"
-        - label:
-            id: cocina_temp_text
-            align: RIGHT_MID
-            x: ${rooms_temp_x}
-            y: -45
-            text_color: 0xFFFFFF
-            text: "--"
-        - label:
-            id: cocina_hum_text
-            align: RIGHT_MID
-            x: ${rooms_hum_x}
-            y: -45
-            text_color: ${col_muted}
-            text: "--"
-        - label:
-            align: LEFT_MID
-            x: ${rooms_name_x}
-            y: -15
-            text_color: ${col_habitacion}
-            text: "Habitación"
-        - label:
-            id: habitacion_temp_text
-            align: RIGHT_MID
-            x: ${rooms_temp_x}
-            y: -15
-            text_color: 0xFFFFFF
-            text: "--"
-        - label:
-            id: habitacion_hum_text
-            align: RIGHT_MID
-            x: ${rooms_hum_x}
-            y: -15
-            text_color: ${col_muted}
-            text: "--"
-        - label:
-            align: LEFT_MID
-            x: ${rooms_name_x}
-            y: 15
-            text_color: ${col_comedor}
-            text: "Comedor"
-        - label:
-            id: comedor_temp_text
-            align: RIGHT_MID
-            x: ${rooms_temp_x}
-            y: 15
-            text_color: 0xFFFFFF
-            text: "--"
-        - label:
-            id: comedor_hum_text
-            align: RIGHT_MID
-            x: ${rooms_hum_x}
-            y: 15
-            text_color: ${col_muted}
-            text: "--"
-        - label:
-            align: LEFT_MID
-            x: ${rooms_name_x}
-            y: 45
-            text_color: ${col_entrada}
-            text: "Entrada"
-        - label:
-            id: entrada_temp_text
-            align: RIGHT_MID
-            x: ${rooms_temp_x}
-            y: 45
-            text_color: 0xFFFFFF
-            text: "--"
-        - label:
-            id: entrada_hum_text
-            align: RIGHT_MID
-            x: ${rooms_hum_x}
-            y: 45
-            text_color: ${col_muted}
-            text: "--"
-        - obj:
-            styles: st_dot
-            x: -35
-        - obj:
-            styles: st_dot
-            x: -21
-        - obj:
-            styles: st_dot
-            x: -7
-        - obj:
-            styles: st_dot
-            x: 7
-            bg_color: 0xFFFFFF
-        - obj:
-            styles: st_dot
-            x: 21
-        - obj:
-            styles: st_dot
-            x: 35
+        - obj: { styles: st_ring, border_color: "${col_rooms}" }
+        - label: { styles: st_title, text_color: "${col_rooms}", text: "${txt_rooms}" }
+        # [room1]
+        - label: { styles: st_room_name, y: -45, text_color: "${col_room1}", text: "${room1_name}" }
+        - label: { id: room1_temp_text, styles: st_room_temp, y: -45, text: "--" }
+        - label: { id: room1_hum_text, styles: st_room_hum, y: -45, text: "--" }
+        # [room2]
+        - label: { styles: st_room_name, y: -15, text_color: "${col_room2}", text: "${room2_name}" }
+        - label: { id: room2_temp_text, styles: st_room_temp, y: -15, text: "--" }
+        - label: { id: room2_hum_text, styles: st_room_hum, y: -15, text: "--" }
+        # [room3]
+        - label: { styles: st_room_name, y: 15, text_color: "${col_room3}", text: "${room3_name}" }
+        - label: { id: room3_temp_text, styles: st_room_temp, y: 15, text: "--" }
+        - label: { id: room3_hum_text, styles: st_room_hum, y: 15, text: "--" }
+        # [room4]
+        - label: { styles: st_room_name, y: 45, text_color: "${col_room4}", text: "${room4_name}" }
+        - label: { id: room4_temp_text, styles: st_room_temp, y: 45, text: "--" }
+        - label: { id: room4_hum_text, styles: st_room_hum, y: 45, text: "--" }
 
-    # Temperature history of the rooms
+    # ── 4. Temperature graph · Gráfico de temperatura ───────────────────────
     - id: graph_page
       styles: st_page
       scrollable: false
+      on_load:
+        - script.execute: { id: show_page_dot, index: 4 }
       widgets:
-        - obj:
-            styles: st_ring
-            border_color: ${col_rooms}
-        - label:
-            id: graph_title
-            align: CENTER
-            y: -80
-            text_color: ${col_rooms}
-            text: "TEMP"
-        - obj: # top and bottom of the plot area
-            styles: st_divider
-            width: 156
-            height: 1
-            x: 15
-            y: -47
-        - obj:
-            styles: st_divider
-            width: 156
-            height: 1
-            x: 15
-            y: 47
-        - label:
-            id: graph_hi_text
-            align: RIGHT_MID
-            x: -188
-            y: -46
-            text_color: ${col_muted}
-            text: "--"
-        - label:
-            id: graph_lo_text
-            align: RIGHT_MID
-            x: -188
-            y: 46
-            text_color: ${col_muted}
-            text: "--"
-        - line:
-            id: cocina_line
-            x: 0
-            y: 0
-            line_width: 2
-            line_rounded: true
-            line_color: ${col_cocina}
-            points:
-              - 0, 0
-        - line:
-            id: habitacion_line
-            x: 0
-            y: 0
-            line_width: 2
-            line_rounded: true
-            line_color: ${col_habitacion}
-            points:
-              - 0, 0
-        - line:
-            id: comedor_line
-            x: 0
-            y: 0
-            line_width: 2
-            line_rounded: true
-            line_color: ${col_comedor}
-            points:
-              - 0, 0
-        - line:
-            id: entrada_line
-            x: 0
-            y: 0
-            line_width: 2
-            line_rounded: true
-            line_color: ${col_entrada}
-            points:
-              - 0, 0
-        - label:
-            align: CENTER
-            x: -67
-            y: 70
-            text_color: ${col_cocina}
-            text: "Coc"
-        - label:
-            align: CENTER
-            x: -24
-            y: 70
-            text_color: ${col_habitacion}
-            text: "Hab"
-        - label:
-            align: CENTER
-            x: 22
-            y: 70
-            text_color: ${col_comedor}
-            text: "Com"
-        - label:
-            align: CENTER
-            x: 66
-            y: 70
-            text_color: ${col_entrada}
-            text: "Ent"
-        - obj:
-            styles: st_dot
-            x: -35
-        - obj:
-            styles: st_dot
-            x: -21
-        - obj:
-            styles: st_dot
-            x: -7
-        - obj:
-            styles: st_dot
-            x: 7
-        - obj:
-            styles: st_dot
-            x: 21
-            bg_color: 0xFFFFFF
-        - obj:
-            styles: st_dot
-            x: 35
+        - obj: { styles: st_ring, border_color: "${col_rooms}" }
+        - label: { id: graph_title, styles: st_title, text_color: "${col_rooms}", text: "${txt_graph}" }
+        # EN: top and bottom of the plot area · ES: borde superior e inferior del gráfico
+        - obj: { styles: st_divider, width: 156, height: 1, x: 15, y: -47 }
+        - obj: { styles: st_divider, width: 156, height: 1, x: 15, y: 47 }
+        - label: { id: graph_hi_text, align: RIGHT_MID, x: -188, y: -46, text_color: "${col_muted}", text: "--" }
+        - label: { id: graph_lo_text, align: RIGHT_MID, x: -188, y: 46, text_color: "${col_muted}", text: "--" }
+        # EN: the points are filled in by refresh_graph · ES: los puntos los rellena refresh_graph
+        - line: { id: room1_line, styles: st_graph_line, line_color: "${col_room1}", points: ["0, 0"] } # [room1]
+        - line: { id: room2_line, styles: st_graph_line, line_color: "${col_room2}", points: ["0, 0"] } # [room2]
+        - line: { id: room3_line, styles: st_graph_line, line_color: "${col_room3}", points: ["0, 0"] } # [room3]
+        - line: { id: room4_line, styles: st_graph_line, line_color: "${col_room4}", points: ["0, 0"] } # [room4]
+        # EN: legend · ES: leyenda
+        - label: { align: CENTER, x: -67, y: 70, text_color: "${col_room1}", text: "${room1_short}" } # [room1]
+        - label: { align: CENTER, x: -24, y: 70, text_color: "${col_room2}", text: "${room2_short}" } # [room2]
+        - label: { align: CENTER, x: 22, y: 70, text_color: "${col_room3}", text: "${room3_short}" } # [room3]
+        - label: { align: CENTER, x: 66, y: 70, text_color: "${col_room4}", text: "${room4_short}" } # [room4]
 
-    # Gengar with tips
+    # ── 5. Gengar ───────────────────────────────────────────────────────────
     - id: gengar_page
       styles: st_page
       scrollable: false
       on_load:
+        - script.execute: { id: show_page_dot, index: 5 }
         - lambda: id(g_gengar_step) = 0;
         - script.execute: gengar_step
         - script.execute: gengar_tip
       widgets:
-        - obj:
-            styles: st_ring
-            border_color: ${col_gengar}
+        - obj: { styles: st_ring, border_color: "${col_gengar}" }
         - canvas:
             id: gengar_canvas
             align: CENTER
@@ -1422,22 +1295,3 @@ lvgl:
             long_mode: WRAP
             text_color: 0xFFFFFF
             text: ""
-        - obj:
-            styles: st_dot
-            x: -35
-        - obj:
-            styles: st_dot
-            x: -21
-        - obj:
-            styles: st_dot
-            x: -7
-        - obj:
-            styles: st_dot
-            x: 7
-        - obj:
-            styles: st_dot
-            x: 21
-        - obj:
-            styles: st_dot
-            x: 35
-            bg_color: 0xFFFFFF
